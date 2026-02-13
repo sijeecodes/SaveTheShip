@@ -1,0 +1,178 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  padding: 20px;
+  color: #333;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header h1 {
+  font-size: 24px;
+}
+
+#status {
+  font-weight: bold;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+#status.connected {
+  background: #48bb78;
+}
+
+#status.disconnected {
+  background: #f56565;
+}
+
+.main-content {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+}
+
+.left-panel {
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.info-section,
+.players-section,
+.controls-section {
+  background: #f7fafc;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.info-section h2,
+.players-section h3,
+.controls-section h3 {
+  margin-bottom: 10px;
+  color: #667eea;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.info-section p,
+.controls-section p {
+  margin: 8px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.info-section p span {
+  font-weight: bold;
+  color: #764ba2;
+}
+
+#playersList {
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.player-item {
+  padding: 10px;
+  margin: 5px 0;
+  background: white;
+  border-radius: 6px;
+  border-left: 4px solid #667eea;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.player-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.player-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+#gameCanvas {
+  border: 3px solid #667eea;
+  border-radius: 8px;
+  background: white;
+  cursor: none;
+  min-width: 800px;
+  height: auto;
+}
+
+.controls-section p {
+  font-size: 12px;
+  margin: 5px 0;
+}
+
+.controls-section strong {
+  color: #764ba2;
+}
+
+@media (max-width: 1100px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .left-panel {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .info-section,
+  .players-section,
+  .controls-section {
+    flex: 1;
+    min-width: 200px;
+  }
+}
+
+/* Scrollbar styling */
+#playersList::-webkit-scrollbar {
+  width: 6px;
+}
+
+#playersList::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 3px;
+}
+
+#playersList::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 3px;
+}
+
+#playersList::-webkit-scrollbar-thumb:hover {
+  background: #764ba2;
+}

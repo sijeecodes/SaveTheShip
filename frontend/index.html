@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiplayer Canvas Game</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎮 Multiplayer Game</h1>
+      <div class="connection-status">
+        <span id="status">Disconnected</span>
+      </div>
+    </div>
+    
+    <div class="main-content">
+      <div class="left-panel">
+        <div class="info-section">
+          <h2>Game Info</h2>
+          <p>Game ID: <span id="gameId">-</span></p>
+          <p>Your ID: <span id="playerId">-</span></p>
+          <p>Players Online: <span id="playerCount">0</span></p>
+        </div>
+        
+        <div class="players-section">
+          <h3>Players</h3>
+          <ul id="playersList"></ul>
+        </div>
+        
+        <div class="controls-section">
+          <h3>Controls</h3>
+          <p>Use <strong>Arrow Keys</strong> or <strong>WASD</strong> to move</p>
+          <p id="instructions">Connecting...</p>
+        </div>
+      </div>
+      
+      <canvas id="gameCanvas" width="800" height="800"></canvas>
+    </div>
+  </div>
+  
+  <script src="game.js"></script>
+</body>
+</html>
