@@ -34,6 +34,11 @@ export class GameStateManager {
           const player3d = new Player3D(playerData.id, playerData.name, false, playerData.color || 0xff0000);
           game.otherPlayers.set(playerData.id, player3d);
           game.scene3d.addObject(player3d.getGroup());
+          // Add remote player's spotlight and target to scene
+          if (player3d.spotlight) {
+            game.scene3d.addObject(player3d.spotlight);
+            game.scene3d.addObject(player3d.spotlightTarget);
+          }
           console.log(`Other player created: ${playerData.name} (${playerData.id})`);
         }
 
