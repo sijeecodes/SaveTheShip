@@ -14,7 +14,7 @@ const wss = new WebSocket.Server({ server });
 const games = new Map();
 const players = new Map();
 
-const GAME_WIDTH = 800;
+const GAME_WIDTH = 1400;
 const GAME_HEIGHT = 800;
 const PLAYER_SIZE = 20;
 const MAX_PLAYERS_PER_GAME = 5;
@@ -23,6 +23,12 @@ const MIN_PLAYERS_PER_GAME = 2;
 // Generate unique IDs
 function generateId() {
   return Math.random().toString(36).substr(2, 9);
+}
+
+// Generate random color from palette
+function generateRandomColor() {
+  const colors = [0x000000, 0x8B00FF, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFFFFFF, 0xFFA500];
+  return colors[Math.floor(Math.random() * colors.length)];
 }
 
 // Create or join a game
@@ -70,6 +76,7 @@ function getGameState(gameId) {
     name: p.name,
     x: p.x,
     y: p.y,
+    z: p.z,
     color: p.color
   }));
   
@@ -100,18 +107,19 @@ wss.on('connection', (ws) => {
         gameId = findOrCreateGame(playerId, playerName);
         const game = games.get(gameId);
         
-        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
-        const color = colors[game.players.size % colors.length];
+        const color = generateRandomColor();
         
         const player = {
           id: playerId,
           name: playerName,
           ws: ws,
-          x: GAME_WIDTH / 2 + Math.random() * 100 - 50,
-          y: GAME_HEIGHT / 2 + Math.random() * 100 - 50,
+          x: 0,
+          y: 10,
+          z: -225,
           color: color,
           joinedAt: Date.now()
         };
+
         
         game.players.set(playerId, player);
         players.set(playerId, { gameId, ws });
@@ -138,8 +146,9 @@ wss.on('connection', (ws) => {
         if (!player) return;
         
         // Update position with boundary checking
-        player.x = Math.max(0, Math.min(GAME_WIDTH - PLAYER_SIZE, message.x));
-        player.y = Math.max(0, Math.min(GAME_HEIGHT - PLAYER_SIZE, message.y));
+        player.x = message.x;
+        player.y = message.y;
+        player.z = message.z;
         
         // Broadcast updated game state
         broadcastToGame(gameId, getGameState(gameId));
