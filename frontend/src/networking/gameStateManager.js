@@ -39,7 +39,7 @@ export class GameStateManager {
 
         const player3d = game.otherPlayers.get(playerData.id);
         // Use x and z from server (3D coordinates), not x and y
-        player3d.update(playerData.x, playerData.y, playerData.z, 0.016);
+        player3d.update(playerData.x, playerData.y, playerData.z, 0.016, playerData.rotationY || 0);
       }
     });
 

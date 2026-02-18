@@ -34,6 +34,7 @@ export class Game3D {
     this.lastNetworkSend = 0;
     this.networkSendInterval = 1000 / 15;
     this.lastSentPosition = new THREE.Vector3();
+    this.lastSentRotationY = 0;
   }
 
   init() {
@@ -195,16 +196,19 @@ export class Game3D {
     // Throttle network sends and only send when position changed
     const now = performance.now();
     const currentPlayer = this.players.get(this.playerId);
+    const rotationChanged = Math.abs(characterYaw - this.lastSentRotationY) > 0.01;
     if (currentPlayer && this.ws && this.ws.readyState === WebSocket.OPEN
         && now - this.lastNetworkSend >= this.networkSendInterval
-        && this.lastSentPosition.distanceToSquared(characterPos) > 0.001) {
+        && (this.lastSentPosition.distanceToSquared(characterPos) > 0.001 || rotationChanged)) {
       this.lastNetworkSend = now;
       this.lastSentPosition.copy(characterPos);
+      this.lastSentRotationY = characterYaw;
       this.ws.send(JSON.stringify({
         type: 'move',
         x: characterPos.x,
         y: characterPos.y,
-        z: characterPos.z
+        z: characterPos.z,
+        rotationY: characterYaw
       }));
     }
   }

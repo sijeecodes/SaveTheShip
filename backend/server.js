@@ -77,6 +77,7 @@ function getGameState(gameId) {
     x: p.x,
     y: p.y,
     z: p.z,
+    rotationY: p.rotationY,
     color: p.color
   }));
   
@@ -116,6 +117,7 @@ wss.on('connection', (ws) => {
           x: 0,
           y: 10,
           z: -225,
+          rotationY: 0,
           color: color,
           joinedAt: Date.now()
         };
@@ -145,10 +147,13 @@ wss.on('connection', (ws) => {
         const player = game.players.get(playerId);
         if (!player) return;
         
-        // Update position with boundary checking
+        // Update position and rotation
         player.x = message.x;
         player.y = message.y;
         player.z = message.z;
+        if (message.rotationY !== undefined) {
+          player.rotationY = message.rotationY;
+        }
         
         // Broadcast updated game state
         broadcastToGame(gameId, getGameState(gameId));
