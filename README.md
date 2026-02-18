@@ -1,22 +1,33 @@
-# Multiplayer Canvas Game
+# SaveTheShip - 3D Multiplayer Game
 
-A real-time multiplayer game where 2-5 players can move circles on a shared canvas using WebSocket communication.
+A real-time multiplayer 3D game where 2-5 players navigate an FBX ship model in first-person view using WebSocket communication.
 
 ## Project Structure
 
 ```
-game-project/
+SaveTheShip/
 ├── backend/
-│   ├── server.js       # Node.js WebSocket server
-│   └── package.json    # Dependencies
+│   ├── server.js           # Node.js WebSocket server
+│   └── package.json        # Dependencies
 ├── frontend/
-│   ├── index.html      # Game UI
-│   ├── styles.css      # Styling
-│   └── game.js         # Game client logic
+│   ├── index.html          # Game UI
+│   ├── game.js             # Vite entry point
+│   ├── styles.css          # Styling
+│   ├── vite.config.js      # Build configuration
+│   ├── package.json        # Dependencies
+│   ├── public/             # Static assets (models, textures)
+│   └── src/
+│       ├── core/           # Main game engine
+│       ├── scene/          # 3D scene setup
+│       ├── camera/         # Camera controls
+│       ├── player/         # Player and character logic
+│       ├── animation/      # Animation management
+│       ├── loaders/        # FBX loader
+│       └── networking/     # WebSocket communication
 └── README.md
 ```
 
-## Phase 1 & 2: Local Development
+## Phase 1 & 2: 3D Game with Multiplayer
 
 ### Prerequisites
 - Node.js (v14 or higher)
@@ -30,32 +41,71 @@ cd backend
 npm install
 ```
 
-2. **Start the server:**
+2. **Install frontend dependencies:**
 ```bash
+cd frontend
+npm install
+```
+
+3. **Start the backend server:**
+```bash
+cd backend
 npm start
 ```
-The server will run on `http://localhost:8080`
+The server will run on `ws://localhost:8080`
 
-3. **Open the frontend:**
-- Open `frontend/index.html` in a web browser (use a simple HTTP server)
-- Or use VS Code's Live Server extension
-- Or run: `python -m http.server 5000` in the frontend directory and visit `http://localhost:5000`
+4. **Start the frontend dev server:**
+```bash
+cd frontend
+npm run dev
+```
+Opens on `http://localhost:5173` (Vite default)
 
-4. **Test with multiple players:**
+5. **Test with multiple players:**
 - Open the game in multiple browser windows/tabs
-- Use Arrow Keys or WASD to move circles
-- Watch real-time synchronization
+- Use Arrow Keys or WASD to move your character
+- Use Space to jump
+- Mouse to look around
+- Watch 3D multiplayer synchronization in real-time
 
 ### Game Features Implemented
 
-✅ Player connection/disconnection
-✅ Real-time position synchronization
+✅ 3D First-Person Camera with FPS controls
+✅ FBX Model Loading (character animations)
+✅ Character Animations (Idle, Run)
+✅ Raycasting-based Ground Collision
+✅ Real-time Position & Animation Synchronization
 ✅ Multi-player rendering (2-5 players per game)
-✅ Keyboard controls (Arrow Keys / WASD)
-✅ Boundary checking
-✅ Player name and color assignment
+✅ Keyboard controls (Arrow Keys / WASD / Space / Mouse)
+✅ Handheld Flashlight Spotlight
+✅ Player name labels above characters
 ✅ Live player list
 ✅ Connection status indicator
+
+---
+
+## Technical Details
+
+### 3D Engine: Three.js
+- WebGL-based 3D graphics rendering
+- Real-time lighting with spotlight
+- Shadow mapping for depth
+
+### Collision Detection
+- Raycasting for ground detection
+- Character height offset calculation
+- Dynamic mesh collection from FBX models
+
+### Character System
+- FBX model animation blending
+- Skeleton-based animation playback
+- Per-player color customization via bone influence
+- Automatic Idle/Run animation switching based on movement
+
+### Networking
+- WebSocket real-time communication
+- Game state synchronization every frame
+- Player position, rotation, and animation state broadcasting
 
 ---
 
@@ -149,15 +199,22 @@ npm --version
 
 **From your local machine (in PowerShell/Command Prompt):**
 
+First, build the frontend:
+```bash
+cd frontend
+npm run build
+```
+
+Then upload:
 ```bash
 # Create folder on EC2
 ssh -i "game-server-key.pem" ubuntu@YOUR_EC2_PUBLIC_IP "mkdir -p /home/ubuntu/game"
 
 # Upload backend
-scp -i a01489105.pem -r "C:\Users\sijee\OneDrive\Desktop\ssd\Cloud\og\backend" ubuntu@34.219.157.125:/home/ubuntu/game/
+scp -i "game-server-key.pem" -r "C:\path\to\backend" ubuntu@YOUR_EC2_PUBLIC_IP:/home/ubuntu/game/
 
-# Upload frontend
-scp -i a01489105.pem -r "C:\Users\sijee\OneDrive\Desktop\ssd\Cloud\og\frontend" ubuntu@34.219.157.125:/home/ubuntu/game/
+# Upload built frontend
+scp -i "game-server-key.pem" -r "C:\path\to\frontend\dist" ubuntu@YOUR_EC2_PUBLIC_IP:/home/ubuntu/game/frontend-dist/
 ```
 
 ### Step 6: Start the Server on EC2
@@ -185,18 +242,18 @@ WebSocket endpoint: ws://localhost:8080
 nohup npm start > server.log 2>&1 &
 ```
 
-### Step 7: Set Up a Simple HTTP Server for Frontend
+### Step 7: Serve Frontend on EC2
 
-1. In another SSH terminal:
+1. In another SSH terminal, serve the built frontend:
 ```bash
-cd /home/ubuntu/game/frontend
+cd /home/ubuntu/game/frontend-dist
 sudo npm install -g http-server
 http-server -p 80
 ```
 
-Or use Python (usually pre-installed):
+Or use Python:
 ```bash
-cd /home/ubuntu/game/frontend
+cd /home/ubuntu/game/frontend-dist
 sudo python3 -m http.server 80
 ```
 
@@ -266,8 +323,12 @@ sudo lsof -ti:8080 | xargs kill -9
 
 ## Next Steps (Phase 4 - Optional)
 
-- Add collision detection
-- Add scoring system
-- Use DynamoDB for storing high scores
-- Use CloudFront for CDN distribution
+- Add more FBX character models
+- Implement player emotes/gestures
+- Add voice chat using WebRTC
+- Implement a mission/objective system
+- Add pickable items and inventory system
+- Physics-based interactions
+- Use DynamoDB for storing player progression
+- Use CloudFront for CDN distribution of 3D assets
 - Add SSL certificate (AWS Certificate Manager)
