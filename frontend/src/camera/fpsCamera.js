@@ -9,6 +9,11 @@ export class FPSCamera {
     this.pitch = 0; // Camera look up/down
     this.mouseSensitivity = 0.003;
     this.isPointerLocked = false;
+
+    // Reusable vectors
+    this._cameraOffset = new THREE.Vector3();
+    this._cameraTarget = new THREE.Vector3();
+    this._lookAtTarget = new THREE.Vector3();
     
     this.setupMouseLock();
     this.setupMouseMove();
@@ -47,18 +52,18 @@ export class FPSCamera {
     const characterPos = this.character.getPosition();
     const characterYaw = this.character.getYaw();
     
-    const cameraOffset = new THREE.Vector3(
+    this._cameraOffset.set(
       -Math.sin(characterYaw) * cameraDistance,
       cameraHeight,
       -Math.cos(characterYaw) * cameraDistance
     );
     
-    const cameraTarget = characterPos.clone().add(cameraOffset);
-    this.camera.position.copy(cameraTarget);
+    this._cameraTarget.copy(characterPos).add(this._cameraOffset);
+    this.camera.position.copy(this._cameraTarget);
     
-    const lookAtTarget = characterPos.clone();
-    lookAtTarget.y += 15;
-    this.camera.lookAt(lookAtTarget);
+    this._lookAtTarget.copy(characterPos);
+    this._lookAtTarget.y += 15;
+    this.camera.lookAt(this._lookAtTarget);
   }
 
   getPosition() {

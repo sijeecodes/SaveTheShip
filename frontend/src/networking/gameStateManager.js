@@ -1,5 +1,8 @@
 import { Player3D } from '../player/player3d.js';
 
+let lastListUpdate = 0;
+const LIST_UPDATE_INTERVAL = 500; // Update DOM list at most every 500ms
+
 export class GameStateManager {
   static updateGameState(game, state) {
     const playerIds = new Set();
@@ -36,7 +39,7 @@ export class GameStateManager {
 
         const player3d = game.otherPlayers.get(playerData.id);
         // Use x and z from server (3D coordinates), not x and y
-        player3d.update(playerData.x, playerData.y, playerData.z, game.clock.getDelta());
+        player3d.update(playerData.x, playerData.y, playerData.z, 0.016);
       }
     });
 
@@ -48,7 +51,11 @@ export class GameStateManager {
       }
     }
 
-    this.updatePlayersList(game);
+    const now = performance.now();
+    if (now - lastListUpdate > LIST_UPDATE_INTERVAL) {
+      lastListUpdate = now;
+      this.updatePlayersList(game);
+    }
     document.getElementById('playerCount').textContent = state.players.length;
   }
 

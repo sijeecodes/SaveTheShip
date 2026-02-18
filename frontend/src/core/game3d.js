@@ -25,10 +25,15 @@ export class Game3D {
 
     this.clock = new THREE.Clock();
     this.frameCount = 0;
-    this.fps = 30;
+    this.fps = 0;
     this.lastFPSUpdate = performance.now();
 
     this.animationId = null;
+
+    // Throttle network sends (~15 updates/sec instead of every frame)
+    this.lastNetworkSend = 0;
+    this.networkSendInterval = 1000 / 15;
+    this.lastSentPosition = new THREE.Vector3();
   }
 
   init() {
@@ -42,13 +47,13 @@ export class Game3D {
     const container = document.getElementById('gameContainer');
 
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: false,
       powerPreference: 'high-performance'
     });
     this.renderer.setSize(window.innerWidth - 320, window.innerHeight - 100);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowShadowMap;
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     container.appendChild(this.renderer.domElement);
 
@@ -152,9 +157,9 @@ export class Game3D {
 
   startGameLoop() {
     const gameLoop = () => {
+      this.animationId = requestAnimationFrame(gameLoop);
       this.update();
       this.render();
-      this.animationId = requestAnimationFrame(gameLoop);
     };
 
     gameLoop();
@@ -187,12 +192,16 @@ export class Game3D {
       }
     }
 
+    // Throttle network sends and only send when position changed
+    const now = performance.now();
     const currentPlayer = this.players.get(this.playerId);
-    if (currentPlayer && this.ws && this.ws.readyState === WebSocket.OPEN) {
+    if (currentPlayer && this.ws && this.ws.readyState === WebSocket.OPEN
+        && now - this.lastNetworkSend >= this.networkSendInterval
+        && this.lastSentPosition.distanceToSquared(characterPos) > 0.001) {
+      this.lastNetworkSend = now;
+      this.lastSentPosition.copy(characterPos);
       this.ws.send(JSON.stringify({
         type: 'move',
-        // x: (characterPos.x + 100) / 200 * 1400,
-        // y: (characterPos.z + 100) / 200 * 800
         x: characterPos.x,
         y: characterPos.y,
         z: characterPos.z

@@ -16,15 +16,15 @@ export class Scene3D {
 
   setupLighting() {
     // Ambient light for general illumination
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.05);
     this.scene.add(ambientLight);
 
     // Handheld flashlight spotlight - narrow, focused beam
     this.spotlight = new THREE.SpotLight(0xffffff, 10, 200, Math.PI / 3, 0.3, 0.1);
-    this.spotlight.position.set(0, 10, -10);
+    this.spotlight.position.set(0, 10, 0);
     this.spotlight.castShadow = true;
-    this.spotlight.shadow.mapSize.width = 2048;
-    this.spotlight.shadow.mapSize.height = 2048;  
+    this.spotlight.shadow.mapSize.width = 1024;
+    this.spotlight.shadow.mapSize.height = 1024;  
     this.scene.add(this.spotlight);
     this.scene.add(this.spotlight.target);
   }
@@ -32,7 +32,7 @@ export class Scene3D {
   updateSpotlightPosition(characterPos, characterYaw) {
     if (this.spotlight) {
       // Position flashlight centered in hand ahead of character
-      const forwardDistance = -10;
+      const forwardDistance = -1;
       const heightOffset = 10;
       
       const forwardX = characterPos.x - Math.sin(characterYaw) * forwardDistance;
@@ -43,7 +43,7 @@ export class Scene3D {
       // Point target 120 degrees from character front, rotated down towards ground
       const angleOffset = 3*Math.PI / 3; // 120 degrees
       const targetYaw = characterYaw + angleOffset;
-      const targetDistance = 50;
+      const targetDistance = 50; // Distance to target point
       const downwardAngle = Math.PI / 12; // 15 degrees down
       const horizontalDistance = targetDistance * Math.cos(downwardAngle);
       const verticalDrop = targetDistance * Math.sin(downwardAngle);
