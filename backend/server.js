@@ -1,14 +1,13 @@
 const WebSocket = require('ws');
 const http = require('http');
-const url = require('url');
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, QueryCommand } = require("@aws-sdk/lib-dynamodb");
 
 const PORT = process.env.PORT || 8080;
 
-// Create HTTP server
-const server = http.createServer();
-
-// Create WebSocket server
-const wss = new WebSocket.Server({ server });
+// DynamoDB setup
+const client = new DynamoDBClient({});
+const ddb = DynamoDBDocumentClient.from(client);
 
 // Game state
 const games = new Map();
@@ -20,6 +19,12 @@ const PLAYER_SIZE = 20;
 const MAX_PLAYERS_PER_GAME = 5;
 const MIN_PLAYERS_PER_GAME = 2;
 
+// HTTP server
+const server = http.createServer();
+
+// WebSocket server
+const wss = new WebSocket.Server({ server });
+
 // Generate unique IDs
 function generateId() {
   return Math.random().toString(36).substr(2, 9);
@@ -29,6 +34,26 @@ function generateId() {
 function generateRandomColor() {
   const colors = [0x000000, 0x8B00FF, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFFFFFF, 0xFFA500];
   return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// Utility: fetch roles from DynamoDB
+async function loadRolesFromDB(lobbyId) {
+  const res = await ddb.send(new QueryCommand({
+    TableName: "SaveTheShipGameLobbies",
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :playerPrefix)",
+    ExpressionAttributeValues: {
+      ":pk": lobbyId,
+      ":playerPrefix": "PLAYER#"
+    }
+  }));
+
+  const roles = {};
+  if (res.Items) {
+    res.Items.forEach(p => {
+      roles[p.playerId] = p.role;
+    });
+  }
+  return roles;
 }
 
 // Create or join a game
@@ -66,7 +91,7 @@ function broadcastToGame(gameId, message) {
   });
 }
 
-// Get game state for broadcasting
+// Build game state including roles
 function getGameState(gameId) {
   const game = games.get(gameId);
   if (!game) return null;
@@ -78,6 +103,7 @@ function getGameState(gameId) {
     y: p.y,
     z: p.z,
     rotationY: p.rotationY,
+    role: p.role || null,
     color: p.color
   }));
   
@@ -95,8 +121,8 @@ function getGameState(gameId) {
 wss.on('connection', (ws) => {
   let playerId = null;
   let gameId = null;
-  
-  ws.on('message', (data) => {
+
+  ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
       
@@ -109,6 +135,12 @@ wss.on('connection', (ws) => {
         const game = games.get(gameId);
         
         const color = generateRandomColor();
+
+        // If game already started, load roles
+        let roles = {};
+        if (game.state === 'in-progress') {
+          roles = await loadRolesFromDB(gameId);
+        }
         
         const player = {
           id: playerId,
@@ -119,6 +151,7 @@ wss.on('connection', (ws) => {
           z: -225,
           rotationY: 0,
           color: color,
+          role: roles[playerId] || null,
           joinedAt: Date.now()
         };
 
@@ -132,6 +165,7 @@ wss.on('connection', (ws) => {
           playerId,
           gameId,
           playerName,
+          role: player.role,
           color
         }));
         

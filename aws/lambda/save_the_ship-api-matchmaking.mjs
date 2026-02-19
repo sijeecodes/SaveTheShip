@@ -3,8 +3,10 @@ import {
     DynamoDBDocumentClient, 
     PutCommand, 
     UpdateCommand, 
-    QueryCommand 
+    QueryCommand,
+    GetCommand
 } from "@aws-sdk/lib-dynamodb";
+import { v4 as uuidv4 } from "uuid";
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -12,23 +14,23 @@ const ddb = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = "SaveTheShipGameLobbies";
 const GSI_NAME = "status-playerCount-index";
 const MAX_PLAYERS = 5; 
-const SERVER_ENDPOINT = "?????????????????";
+const SERVER_ENDPOINT = "????????????????????????????????????????"; // TODO: Change to the actual server endpoint
 
 export const handler = async (event) => {
     const body = event.body ? JSON.parse(event.body) : {};
     const action = body.action;
-    const targetId = body.pkLobbyId || body.lobbyId;
+    const lobbyId = body.pkLobbyId || body.lobbyId;
 
     try {
         switch (action) {
             case "matchmake":
-                return await handleMatchmake(body.playerId);
+                return await handleMatchmake(body.playerName);
             case "start":
-                return await updateStatus(targetId, "in-progress", 3600);
+                return await startGame(lobbyId);
             case "finish":
-                return await updateStatus(targetId, "finished", 300);
+                return await updateStatus(lobbyId, "finished", 300);
             case "expire":
-                return await updateStatus(targetId, "expired", 60);
+                return await updateStatus(lobbyId, "expired", 60);
             default:
                 return response(400, { message: "Invalid action" });
         }
@@ -38,56 +40,89 @@ export const handler = async (event) => {
     }
 };
 
-async function handleMatchmake(playerId) {
-    if (!playerId) return response(400, { message: "playerId required" });
+// -------------------------
+// Handle matchmaking
+// -------------------------
+async function handleMatchmake(playerName) {
+    if (!playerName || playerName.trim() === "") {
+        return response(400, { message: "playerName required" });
+    }
+    if (playerName.length > 30) {
+        return response(400, { message: "playerName too long" });
+    }
+    
+    const playerId = uuidv4();
+    const playerObject = {
+        playerId,
+        playerName: playerName.trim(),
+        role: null,
+        connectionId: null,
+        isAlive: true,
+        joinedAt: Date.now()
+    };
 
-    // Try to find an existing lobby (3 attempts for concurrency)
+    // Try to find an existing lobby (3 attempts)
     for (let attempt = 0; attempt < 3; attempt++) {
         const queryResult = await ddb.send(new QueryCommand({
             TableName: TABLE_NAME,
             IndexName: GSI_NAME,
-            KeyConditionExpression: "#s = :waiting",
-            ExpressionAttributeNames: { "#s": "status" },
-            ExpressionAttributeValues: { ":waiting": "waiting" },
+            KeyConditionExpression: "#gpk = :gpk AND begins_with(#gsk, :status)",
+            ExpressionAttributeNames: {
+                "#gpk": "gsiPK",
+                "#gsk": "gsiSK"
+            },
+            ExpressionAttributeValues: {
+                ":gpk": "LOBBY",
+                ":status": "waiting"
+            },
             ScanIndexForward: true,
             Limit: 1
         }));
 
         if (queryResult.Items && queryResult.Items.length > 0) {
             const lobby = queryResult.Items[0];
-            const isNowFull = (lobby.playerCount + 1 >= MAX_PLAYERS);
+            const newCount = lobby.playerCount + 1;
+            const isNowFull = newCount >= MAX_PLAYERS;
             const newStatus = isNowFull ? "full" : "waiting";
+            const gsiSK = `${newStatus}#${newCount}`;
 
             try {
-                // ATOMIC JOIN: Adds player and updates status in one go
+                // Update lobby playerCount atomically
                 await ddb.send(new UpdateCommand({
                     TableName: TABLE_NAME,
-                    Key: { pkLobbyId: lobby.pkLobbyId },
+                    Key: { PK: lobby.PK, SK: "METADATA" },
                     UpdateExpression: `
-                        SET players = list_append(players, :p),
-                        playerCount = playerCount + :inc,
-                        #s = :newStatus
+                        SET playerCount = :newCount,
+                            #s = :newStatus,
+                            gsiSK = :gsiSK
                     `,
-                    ConditionExpression: `
-                        playerCount < :max 
-                        AND #s = :waiting 
-                        AND NOT contains(players, :playerId)
-                    `,
+                    ConditionExpression: "playerCount < :max AND #s = :waiting",
                     ExpressionAttributeNames: { "#s": "status" },
                     ExpressionAttributeValues: {
-                        ":p": [playerId],
-                        ":inc": 1,
-                        ":max": MAX_PLAYERS,
-                        ":waiting": "waiting",
+                        ":newCount": newCount,
                         ":newStatus": newStatus,
-                        ":playerId": playerId
+                        ":gsiSK": gsiSK,
+                        ":max": MAX_PLAYERS,
+                        ":waiting": "waiting"
                     }
                 }));
 
-                return response(200, { 
-                    lobbyId: lobby.pkLobbyId, 
+                // Add the new player item
+                await ddb.send(new PutCommand({
+                    TableName: TABLE_NAME,
+                    Item: {
+                        PK: lobby.PK,
+                        SK: `PLAYER#${playerId}`,
+                        entityType: "PLAYER",
+                        ...playerObject
+                    }
+                }));
+
+                return response(200, {
+                    lobbyId: lobby.PK,
+                    playerId,
                     status: newStatus,
-                    serverEndpoint: SERVER_ENDPOINT 
+                    serverEndpoint: lobby.serverEndpoint
                 });
 
             } catch (err) {
@@ -97,46 +132,122 @@ async function handleMatchmake(playerId) {
         }
     }
 
-    // CREATE NEW LOBBY (if no "waiting" lobbies found)
+    // CREATE NEW LOBBY if no waiting lobby found
     const now = Math.floor(Date.now() / 1000);
-    const newLobby = {
-        pkLobbyId: `lobby-${Date.now()}`,
+    const newLobbyId = `LOBBY#${Date.now()}`;
+    const newLobbyItem = {
+        PK: newLobbyId,
+        SK: "METADATA",
+        entityType: "LOBBY",
         status: "waiting",
-        players: [playerId],
         playerCount: 1,
         maxPlayers: MAX_PLAYERS,
         serverEndpoint: SERVER_ENDPOINT,
         createdAt: now,
-        ttl: now + 900 // 15 min expiry
+        ttl: now + 900,
+        gsiPK: "LOBBY",
+        gsiSK: `waiting#1`
     };
 
     await ddb.send(new PutCommand({
         TableName: TABLE_NAME,
-        Item: newLobby
+        Item: newLobbyItem
     }));
 
-    return response(200, { 
-        lobbyId: newLobby.pkLobbyId, 
+    // Add the player item
+    await ddb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            PK: newLobbyId,
+            SK: `PLAYER#${playerId}`,
+            entityType: "PLAYER",
+            ...playerObject
+        }
+    }));
+
+    return response(200, {
+        lobbyId: newLobbyId,
+        playerId,
         status: "waiting",
-        serverEndpoint: SERVER_ENDPOINT 
+        serverEndpoint: SERVER_ENDPOINT
     });
 }
 
+// -------------------------
+// Start game: assign roles
+// -------------------------
+async function startGame(lobbyId) {
+    if (!lobbyId) return response(400, { message: "lobbyId required" });
+
+    // Get lobby metadata
+    const lobbyResult = await ddb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: lobbyId, SK: "METADATA" }
+    }));
+    const lobby = lobbyResult.Item;
+    if (!lobby) return response(404, { message: "Lobby not found" });
+
+    // Get all players
+    const playersQuery = await ddb.send(new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: "PK = :pk AND begins_with(SK, :playerPrefix)",
+        ExpressionAttributeValues: {
+            ":pk": lobbyId,
+            ":playerPrefix": "PLAYER#"
+        }
+    }));
+    const players = playersQuery.Items;
+
+    // Shuffle and assign sabotage role
+    const shuffled = players.sort(() => 0.5 - Math.random());
+    const sabotagerCount = 1; // adjust as needed
+
+    const updatePromises = shuffled.map((player, i) => {
+        const role = i < sabotagerCount ? "sabotager" : "crew";
+        return ddb.send(new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { PK: lobbyId, SK: player.SK },
+            UpdateExpression: "SET #r = :role",
+            ExpressionAttributeNames: { "#r": "role" },
+            ExpressionAttributeValues: { ":role": role }
+        }));
+    });
+    
+    await Promise.all(updatePromises);
+
+    // Update lobby status
+    await ddb.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: lobbyId, SK: "METADATA" },
+        UpdateExpression: "SET #s = :status",
+        ExpressionAttributeNames: { "#s": "status" },
+        ExpressionAttributeValues: { ":status": "in-progress" }
+    }));
+
+    return response(200, { message: "Game started", lobbyId });
+}
+
+// -------------------------
+// Update lobby status
+// -------------------------
 async function updateStatus(lobbyId, newStatus, ttlSeconds) {
-    if (!lobbyId) return response(400, { message: "pkLobbyId required" });
+    if (!lobbyId) return response(400, { message: "lobbyId required" });
     const now = Math.floor(Date.now() / 1000);
 
     await ddb.send(new UpdateCommand({
         TableName: TABLE_NAME,
-        Key: { pkLobbyId: lobbyId },
-        UpdateExpression: "SET #s = :status, #t = :ttl",
-        ExpressionAttributeNames: { "#s": "status", "#t": "ttl" },
+        Key: { PK: lobbyId, SK: "METADATA" },
+        UpdateExpression: "SET #s = :status, ttl = :ttl",
+        ExpressionAttributeNames: { "#s": "status" },
         ExpressionAttributeValues: { ":status": newStatus, ":ttl": now + ttlSeconds }
     }));
 
     return response(200, { message: `Lobby set to ${newStatus}` });
 }
 
+// -------------------------
+// Response helper
+// -------------------------
 function response(statusCode, body) {
     return {
         statusCode,
