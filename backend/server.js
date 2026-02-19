@@ -38,22 +38,27 @@ function generateRandomColor() {
 
 // Utility: fetch roles from DynamoDB
 async function loadRolesFromDB(lobbyId) {
-  const res = await ddb.send(new QueryCommand({
-    TableName: "SaveTheShipGameLobbies",
-    KeyConditionExpression: "PK = :pk AND begins_with(SK, :playerPrefix)",
-    ExpressionAttributeValues: {
-      ":pk": lobbyId,
-      ":playerPrefix": "PLAYER#"
-    }
-  }));
+  try {
+    const res = await ddb.send(new QueryCommand({
+      TableName: "SaveTheShipGameLobbies",
+      KeyConditionExpression: "PK = :pk AND begins_with(SK, :playerPrefix)",
+      ExpressionAttributeValues: {
+        ":pk": lobbyId,
+        ":playerPrefix": "PLAYER#"
+      }
+    }));
 
-  const roles = {};
-  if (res.Items) {
-    res.Items.forEach(p => {
-      roles[p.playerId] = p.role;
-    });
+    const roles = {};
+    if (res.Items) {
+      res.Items.forEach(p => {
+        roles[p.playerId] = p.role;
+      });
+    }
+    return roles;
+  } catch (err) {
+    console.error("Failed to load roles from DB:", err);
+    return {};
   }
-  return roles;
 }
 
 // Create or join a game
@@ -224,5 +229,5 @@ wss.on('connection', (ws) => {
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Game server running on port ${PORT}`);
-  console.log(`WebSocket endpoint: ws://localhost:${PORT}`);
+  console.log(`WebSocket endpoint: ws://<EC2_PUBLIC_IP>:${PORT}`);
 });
