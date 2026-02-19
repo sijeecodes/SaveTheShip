@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Game Matchmaking Test</title>
+        <style>
+            body {
+                margin: 0;
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #1e3c72, #2a5298);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                color: white;
+            }
+
+            .card {
+                background: rgba(0, 0, 0, 0.6);
+                padding: 30px;
+                border-radius: 12px;
+                width: 350px;
+                text-align: center;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            }
+
+            h1 {
+                margin-bottom: 20px;
+            }
+
+            input {
+                width: 100%;
+                padding: 10px;
+                border-radius: 6px;
+                border: none;
+                margin-bottom: 15px;
+                font-size: 16px;
+            }
+
+            button {
+                width: 100%;
+                padding: 12px;
+                border: none;
+                border-radius: 6px;
+                font-size: 16px;
+                cursor: pointer;
+                background: #4caf50;
+                color: white;
+                transition: 0.2s;
+            }
+
+            button:hover {
+                background: #45a049;
+            }
+
+            .status {
+                margin-top: 15px;
+                font-size: 14px;
+                min-height: 20px;
+            }
+
+            .result {
+                margin-top: 15px;
+                background: rgba(255, 255, 255, 0.1);
+                padding: 10px;
+                border-radius: 6px;
+                font-size: 14px;
+                word-wrap: break-word;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>🎮 Matchmaking</h1>
+
+            <input type="text" id="playerName" placeholder="Enter your name" />
+
+            <button onclick="findMatch()">Find Match</button>
+
+            <div class="status" id="status"></div>
+            <div class="result" id="result"></div>
+        </div>
+
+        <script>
+            const API_URL =
+                "https://knrwxjbki3.execute-api.us-west-2.amazonaws.com/matchmake";
+
+            async function findMatch() {
+                const name = document.getElementById("playerName").value.trim();
+                const statusDiv = document.getElementById("status");
+                const resultDiv = document.getElementById("result");
+
+                if (!name) {
+                    statusDiv.innerText = "Please enter a name.";
+                    return;
+                }
+
+                statusDiv.innerText = "Finding match...";
+                resultDiv.innerText = "";
+
+                try {
+                    // Send the action field required by your Lambda
+                    const response = await fetch(API_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            action: "matchmake",
+                            playerId: name,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Server error: " + response.status);
+                    }
+
+                    const data = await response.json();
+
+                    statusDiv.innerText = "Match Found!";
+                    resultDiv.innerHTML = `
+                        <strong>Lobby ID:</strong> ${data.lobbyId}<br/>
+                        <strong>Server IP:</strong> ${data.serverIp}<br/>
+                        <strong>Port:</strong> ${data.port}
+                    `;
+                } catch (err) {
+                    statusDiv.innerText = "Error connecting to server.";
+                    resultDiv.innerText = err.message;
+                }
+            }
+        </script>
+    </body>
+</html>
