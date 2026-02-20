@@ -1,44 +1,23 @@
 import * as THREE from 'three';
 
+/**
+ * FPS-style camera that follows the character from a fixed offset.
+ * Mouse/pointer events are handled by EventManager.
+ */
 export class FPSCamera {
-  constructor(camera, character, domElement) {
+  constructor(camera, character) {
     this.camera = camera;
     this.character = character;
-    this.domElement = domElement;
-    
-    this.pitch = 0; // Camera look up/down
+
+    this.pitch = 0;
     this.mouseSensitivity = 0.003;
-    this.isPointerLocked = false;
 
     // Reusable vectors
     this._cameraOffset = new THREE.Vector3();
     this._cameraTarget = new THREE.Vector3();
     this._lookAtTarget = new THREE.Vector3();
-    
-    this.setupMouseLock();
-    this.setupMouseMove();
-    
+
     this.updateCamera();
-  }
-
-  setupMouseLock() {
-    document.addEventListener('click', () => {
-      this.domElement.requestPointerLock();
-    });
-
-    document.addEventListener('pointerlockchange', () => {
-      this.isPointerLocked = document.pointerLockElement === this.domElement;
-    });
-  }
-
-  setupMouseMove() {
-    document.addEventListener('mousemove', (e) => {
-      if (this.isPointerLocked) {
-        this.character.yaw -= e.movementX * this.mouseSensitivity;
-        this.pitch -= e.movementY * this.mouseSensitivity;
-        this.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitch));
-      }
-    });
   }
 
   update() {
@@ -46,23 +25,23 @@ export class FPSCamera {
   }
 
   updateCamera() {
-    const cameraDistance = 7;
-    const cameraHeight = 20;
-    
+    const cameraDistance = 9;
+    const cameraHeight = 18;
+
     const characterPos = this.character.getPosition();
     const characterYaw = this.character.getYaw();
-    
+
     this._cameraOffset.set(
       -Math.sin(characterYaw) * cameraDistance,
       cameraHeight,
       -Math.cos(characterYaw) * cameraDistance
     );
-    
+
     this._cameraTarget.copy(characterPos).add(this._cameraOffset);
     this.camera.position.copy(this._cameraTarget);
-    
+
     this._lookAtTarget.copy(characterPos);
-    this._lookAtTarget.y += 15;
+    this._lookAtTarget.y += 14;
     this.camera.lookAt(this._lookAtTarget);
   }
 

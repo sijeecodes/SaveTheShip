@@ -1,17 +1,24 @@
 import * as THREE from 'three';
 import { EnvironmentBuilder } from './environment.js';
+import { ControlPanel } from './controlPanel.js';
 
 export class Scene3D {
-  constructor(onShipLoaded) {
+  constructor(onSceneReady) {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);
     this.scene.fog = new THREE.Fog(0x000000, 0, 150);
-    this.onShipLoaded = onShipLoaded;
-    
+    this.onSceneReady = onSceneReady;
     this.spotlight = null;
-    
+    this._shipLoaded = false;
+    this._cpanelLoaded = false;
     this.setupLighting();
     this.setupEnvironment();
+  }
+
+  _checkAllLoaded() {
+    if (this._shipLoaded && this._cpanelLoaded && this.onSceneReady) {
+      this.onSceneReady();
+    }
   }
 
   setupLighting() {
@@ -32,32 +39,33 @@ export class Scene3D {
   updateSpotlightPosition(characterPos, characterYaw) {
     if (this.spotlight) {
       // Position flashlight centered in hand ahead of character
-      const forwardDistance = -1;
-      const heightOffset = 10;
+      this.spotlight.position.set(
+        characterPos.x - Math.sin(characterYaw) * -1, // Position in front of character
+        characterPos.y + 10,                          // Height above character
+        characterPos.z - Math.cos(characterYaw) * -1  // Position in front of character
+      );
       
-      const forwardX = characterPos.x - Math.sin(characterYaw) * forwardDistance;
-      const forwardZ = characterPos.z - Math.cos(characterYaw) * forwardDistance;
-      
-      this.spotlight.position.set(forwardX, characterPos.y + heightOffset, forwardZ);
-      
-      // Point target 120 degrees from character front, rotated down towards ground
-      const angleOffset = 3*Math.PI / 3; // 120 degrees
-      const targetYaw = characterYaw + angleOffset;
-      const targetDistance = 50; // Distance to target point
+      // Point target ahead of character, angled slightly downward
       const downwardAngle = Math.PI / 12; // 15 degrees down
+      const targetDistance = 50;
+      const targetYaw = characterYaw + 3 * Math.PI / 3; // Rotate 120 degrees from front
       const horizontalDistance = targetDistance * Math.cos(downwardAngle);
-      const verticalDrop = targetDistance * Math.sin(downwardAngle);
-      const targetX = characterPos.x - Math.sin(targetYaw) * horizontalDistance;
-      const targetZ = characterPos.z - Math.cos(targetYaw) * horizontalDistance;
-      this.spotlight.target.position.set(targetX, characterPos.y - verticalDrop, targetZ);
+      this.spotlight.target.position.set(
+        characterPos.x - Math.sin(targetYaw) * horizontalDistance,
+        characterPos.y - targetDistance * Math.sin(downwardAngle),
+        characterPos.z - Math.cos(targetYaw) * horizontalDistance
+      );
     }
   }
 
   setupEnvironment() {
     EnvironmentBuilder.loadShip(this.scene, () => {
-      if (this.onShipLoaded) {
-        this.onShipLoaded();
-      }
+      this._shipLoaded = true;
+      this._checkAllLoaded();
+    });
+    ControlPanel.loadCPanel(this.scene, () => {
+      this._cpanelLoaded = true;
+      this._checkAllLoaded();
     });
   }
 

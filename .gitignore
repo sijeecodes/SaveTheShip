@@ -1,5 +1,27 @@
+# Dependencies
 node_modules/
-.DS_Store
-a01489105.pem
+
+# Build output
+dist/
+
+# Environment & secrets
 .env
+.env.*
 *.pem
+a01489105.pem
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Vite
+.vite/

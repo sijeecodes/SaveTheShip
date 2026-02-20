@@ -19,6 +19,9 @@ const PLAYER_SIZE = 20;
 const MAX_PLAYERS_PER_GAME = 5;
 const MIN_PLAYERS_PER_GAME = 2;
 
+const TOTAL_PANELS = 8;
+const PANELS_NEED_FIX = 6;
+
 // HTTP server
 const server = http.createServer();
 
@@ -76,11 +79,40 @@ function findOrCreateGame(playerId, playerName) {
     id: gameId,
     players: new Map(),
     state: 'waiting',
+    panelsNeedFix: [],
     createdAt: Date.now()
   };
   
   games.set(gameId, game);
   return gameId;
+}
+
+// Select random panel IDs that need fixing
+function selectPanelsNeedFix() {
+  const allIds = [];
+  for (let i = 1; i <= TOTAL_PANELS; i++) allIds.push(i);
+  // Shuffle and pick PANELS_NEED_FIX
+  for (let i = allIds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allIds[i], allIds[j]] = [allIds[j], allIds[i]];
+  }
+  return allIds.slice(0, PANELS_NEED_FIX);
+}
+
+// Start the game: select broken panels and notify all players
+function startGame(gameId) {
+  const game = games.get(gameId);
+  if (!game || game.state === 'playing') return;
+
+  game.state = 'playing';
+  game.panelsNeedFix = selectPanelsNeedFix();
+
+  broadcastToGame(gameId, {
+    type: 'panelsNeedFix',
+    panelIds: game.panelsNeedFix
+  });
+
+  console.log(`Game ${gameId} started — panels needing fix: [${game.panelsNeedFix.join(', ')}]`);
 }
 
 // Broadcast to all players in a game
@@ -176,6 +208,19 @@ wss.on('connection', (ws) => {
         
         // Update all players in game
         broadcastToGame(gameId, getGameState(gameId));
+
+        // Start game when minimum players reached
+        if (game.players.size >= MIN_PLAYERS_PER_GAME && game.state === 'waiting') {
+          startGame(gameId);
+        }
+
+        // If game already started, send panelsNeedFix to the new joiner
+        if (game.state === 'playing' && game.panelsNeedFix.length > 0) {
+          ws.send(JSON.stringify({
+            type: 'panelsNeedFix',
+            panelIds: game.panelsNeedFix
+          }));
+        }
       }
       
       // Player moved
@@ -196,6 +241,32 @@ wss.on('connection', (ws) => {
         
         // Broadcast updated game state
         broadcastToGame(gameId, getGameState(gameId));
+      }
+
+      // Player started fixing a panel
+      if (message.type === 'startFix' && playerId && gameId) {
+        broadcastToGame(gameId, {
+          type: 'playerFixing',
+          playerId: playerId,
+          panelId: message.panelId
+        });
+        console.log(`Player ${playerId} started fixing panel ${message.panelId}`);
+      }
+
+      // Player finished fixing a panel
+      if (message.type === 'fixComplete' && playerId && gameId) {
+        const game = games.get(gameId);
+        if (game) {
+          const idx = game.panelsNeedFix.indexOf(message.panelId);
+          if (idx !== -1) {
+            game.panelsNeedFix.splice(idx, 1);
+          }
+          broadcastToGame(gameId, {
+            type: 'panelFixed',
+            panelId: message.panelId
+          });
+          console.log(`Panel ${message.panelId} fixed by ${playerId}. Remaining: [${game.panelsNeedFix.join(', ')}]`);
+        }
       }
     } catch (error) {
       console.error('Message handling error:', error);
