@@ -1,4 +1,4 @@
-import { Player3D } from '../player/player3d.js';
+import { CharacterAnimation } from '../player/characterAnimation.js';
 
 let lastListUpdate = 0;
 const LIST_UPDATE_INTERVAL = 500; // Update DOM list at most every 500ms
@@ -31,27 +31,27 @@ export class GameStateManager {
         }
 
         if (!game.otherPlayers.has(playerData.id)) {
-          const player3d = new Player3D(playerData.id, playerData.name, false, playerData.color || 0xff0000);
-          game.otherPlayers.set(playerData.id, player3d);
-          game.scene3d.addObject(player3d.getGroup());
+          const character = new CharacterAnimation(playerData.id, playerData.name, false, playerData.color || 0xff0000);
+          game.otherPlayers.set(playerData.id, character);
+          game.scene3d.addObject(character.getGroup());
           // Add remote player's spotlight and target to scene
-          if (player3d.spotlight) {
-            game.scene3d.addObject(player3d.spotlight);
-            game.scene3d.addObject(player3d.spotlightTarget);
+          if (character.spotlight) {
+            game.scene3d.addObject(character.spotlight);
+            game.scene3d.addObject(character.spotlightTarget);
           }
           console.log(`Other player created: ${playerData.name} (${playerData.id})`);
         }
 
-        const player3d = game.otherPlayers.get(playerData.id);
+        const character = game.otherPlayers.get(playerData.id);
         // Use x and z from server (3D coordinates), not x and y
-        player3d.update(playerData.x, playerData.y, playerData.z, 0.016, playerData.rotationY || 0);
+        character.update(playerData.x, playerData.y, playerData.z, 0.016, playerData.rotationY || 0);
       }
     });
 
-    for (const [id, player3d] of game.otherPlayers.entries()) {
+    for (const [id, character] of game.otherPlayers.entries()) {
       if (!playerIds.has(id)) {
-        game.scene3d.removeObject(player3d.getGroup());
-        player3d.dispose();
+        game.scene3d.removeObject(character.getGroup());
+        character.dispose();
         game.otherPlayers.delete(id);
       }
     }
